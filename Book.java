@@ -13,6 +13,7 @@ public class Book {
     // Book metadata
     private String title;
     private String author;
+    private int stock;
     
     // BST structure pointers
     private Book left;
@@ -64,6 +65,15 @@ public class Book {
      */
     public String getAuthor() {
         return author;
+    }
+
+    /**
+     * Retrieves the book's stock.
+     * 
+     * @return The book's stock
+     */
+    public int getStock() {
+        return stock;
     }
     
     // --- BST Pointer Accessors ---
@@ -124,5 +134,19 @@ public class Book {
         return "Book [isbn=" + isbn + ", title=" + title + 
             ", author=" + author + ", left=" + leftInfo + 
             ", right=" + rightInfo + "]";
+    }
+
+    //Kits help to pick out redundancy
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Book book = (Book) o;
+        return isbn == book.isbn;
+    }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(isbn);
     }
 }
