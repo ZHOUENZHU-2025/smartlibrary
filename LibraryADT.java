@@ -68,7 +68,7 @@ public interface LibraryADT {
      * history stack and re-inserts it into the BST catalogue via addBook().
      * Prints a descriptive message if the stack is empty.
      */
-    void returnLatestBook();
+    void returnBook(int isbn);
 
     // =========================================================================
     //  Startup — data loading

@@ -68,7 +68,8 @@ public class SmartLibrary {
             System.out.println("2. Search Book");
             System.out.println("3. Borrow Book");
             System.out.println("4. View History");
-            System.out.println("5. Exit");
+            System.out.println("5. Return Book by ISBN");
+            System.out.println("6. Exit");
             System.out.print("Enter your choice: ");
 
             int choice;
@@ -95,6 +96,9 @@ public class SmartLibrary {
                     library.viewLatestHistory();
                     break;
                 case 5:
+                    handleReturnBook(library, scanner);
+    break; 
+                case 6:
                     // ── Save state before exit ────────────────────────────────
                     System.out.println("\nSaving library state...");
                     library.saveLibraryState(SAVED_CATALOGUE, SAVED_HISTORY);
@@ -102,7 +106,7 @@ public class SmartLibrary {
                     scanner.close();
                     return;
                 default:
-                    System.out.println("Invalid choice. Please select 1-5.");
+                    System.out.println("Invalid choice. Please select 1-6.");
             }
         }
     }
@@ -145,6 +149,13 @@ public class SmartLibrary {
         library.borrowBook(isbn);
     }
 
+
+    private static void handleReturnBook(LibraryADT library, Scanner scanner) {
+        int isbn = readInt(scanner, "Enter ISBN of the book to return: ");
+        if (isbn == -1) return;
+        
+        library.returnBook(isbn);
+    }
     // =========================================================================
     //  Input utility
     // =========================================================================
