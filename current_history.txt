@@ -1,0 +1,3 @@
+# Smart Library — Borrowing History (auto-saved)
+# Format  : ISBN|Title|Author
+# Order   : Bottom-to-top — DO NOT edit manually
