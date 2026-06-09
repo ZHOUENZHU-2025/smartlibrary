@@ -93,10 +93,10 @@ public class LibraryImpl implements LibraryADT {
 
         System.out.println("\n=== Latest Borrowing History ===");
         int size  = historyStack.size();
-        int limit = Math.min(10, size);
+        //cancel the limitation int limit = Math.min(10, size);
 
         // Iterate from top of stack (newest) downward to show latest 10
-        for (int i = size - 1; i >= size - limit; i--) {
+        for (int i = size - 1; i >= 0; i--) { //size - limit
             BorrowHistory record = historyStack.get(i);
             System.out.println(String.format("[%d] %s by %s (ISBN: %d)",
                     (size - i), record.getTitle(), record.getAuthor(),
@@ -111,23 +111,36 @@ public class LibraryImpl implements LibraryADT {
     }
 
     @Override
-    public void returnLatestBook() {
-        if (historyStack.isEmpty()) {
-            System.out.println("No borrowing history found. No books to return.");
-            return;
-        }
-
-        // Pop the most-recently-borrowed record (LIFO)
-        BorrowHistory record = historyStack.pop();
-        int    isbn   = record.getIsbn();
-        String title  = record.getTitle();
-        String author = record.getAuthor();
-
-        // Re-insert the book into the BST catalogue
-        addBook(isbn, title, author);
-
-        System.out.println("Successfully returned: " + title + " (ISBN: " + isbn + ")");
+public void returnBook(int isbn) {
+    if (historyStack.isEmpty()) {
+        System.out.println("No borrowing history found. Cannot return book.");
+        return;
     }
+
+    // 从栈顶向下查找第一个匹配 ISBN 的记录（即最近一次借阅未归还的） search
+    int index = -1;
+    for (int i = historyStack.size() - 1; i >= 0; i--) {
+        if (historyStack.get(i).getIsbn() == isbn) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        System.out.println("No borrowing record found for ISBN " + isbn + ". Cannot return.");
+        return;
+    }
+
+    // 取出记录并删除 change record
+    BorrowHistory record = historyStack.remove(index);
+    String title = record.getTitle();
+    String author = record.getAuthor();
+
+    // 重新插入 BST readd
+    addBook(isbn, title, author);
+
+    System.out.println("Successfully returned: " + title + " (ISBN: " + isbn + ")");
+}
 
     // =========================================================================
     //  LibraryADT — Startup: data loading

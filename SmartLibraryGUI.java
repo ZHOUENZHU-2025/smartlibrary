@@ -405,14 +405,27 @@ public class SmartLibraryGUI extends JFrame {
         hdr.add(titleLbl, BorderLayout.WEST);
         hdr.add(printBtn, BorderLayout.EAST);
 
-        // ── Row 2: prominent Return / Undo button ─────────────────────────────
-        JButton returnBtn = makeButton("↩  Undo Last Borrow / Return Book", C_ORANGE);
-        returnBtn.addActionListener(e -> handleReturn());
+        // ── Row 2: Return by ISBN area ─────────────────────────────────────
+        JPanel returnPanel = new JPanel(new BorderLayout(5, 0));
+        returnPanel.setOpaque(false);
+
+        JLabel returnLabel = new JLabel("Return Book by ISBN:");
+        returnLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+        JTextField returnIsbnField = new JTextField();
+        returnIsbnField.setColumns(10);
+
+        JButton returnBtn = new JButton("Return");
+        returnBtn.addActionListener(e -> handleReturnByIsbn(returnIsbnField));
+
+        returnPanel.add(returnLabel, BorderLayout.WEST);
+        returnPanel.add(returnIsbnField, BorderLayout.CENTER);
+        returnPanel.add(returnBtn, BorderLayout.EAST);
 
         JPanel northPanel = new JPanel(new BorderLayout(0, 8));
         northPanel.setOpaque(false);
-        northPanel.add(hdr,       BorderLayout.NORTH);
-        northPanel.add(returnBtn, BorderLayout.CENTER);
+        northPanel.add(hdr,         BorderLayout.NORTH);
+        northPanel.add(returnPanel, BorderLayout.CENTER);
 
         // ── Non-editable table model ───────────────────────────────────────────
         historyModel = new DefaultTableModel(
@@ -745,27 +758,36 @@ public class SmartLibraryGUI extends JFrame {
      *      re-inserts the book into the BST via addBook(), all via LibraryADT.
      *   4. Remove row 0 from the table to mirror the LIFO pop.
      */
-    private void handleReturn() {
-        if (historyModel.getRowCount() == 0) {
+
+    //2.0 return book way
+    
+    private void handleReturnByIsbn(JTextField isbnField) {
+        String raw = isbnField.getText().trim();
+        if (raw.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "No borrowing history found.\nThere are no books to return.",
-                "Nothing to Return",
-                JOptionPane.INFORMATION_MESSAGE);
-            setStatus("Return attempted — history stack is empty.");
+                "Please enter an ISBN to return.",
+                "Missing Input",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int isbn;
+        try {
+            isbn = Integer.parseInt(raw);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this,
+                "ISBN must be a whole number.",
+                "Invalid ISBN",
+                JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // Column indices: 0=#, 1=title, 2=author, 3=isbn
-        String title = (String)  historyModel.getValueAt(0, 1);
-        int    isbn  = (Integer) historyModel.getValueAt(0, 3);
+    // 调用 LibraryADT 中的 returnBook 方法（注意接口中已经改为 returnBook(int isbn)）
+            library.returnBook(isbn);
 
-        library.returnLatestBook();               // ← LibraryADT only
-
-        historyModel.removeRow(0);
-        borrowSeq--;   // keep the counter consistent for subsequent borrows
-
-        log("[Return]  ISBN " + isbn + ": \"" + title + "\" restored to catalogue.");
-        setStatus("Returned: " + title + "  (ISBN " + isbn + ")");
+    // 刷新历史表格（重新从栈中加载所有记录）
+            syncHistoryTableFromStack();
+            isbnField.setText("");
+            setStatus("Returned book with ISBN " + isbn);
     }
 
     // ==========================================================================
