@@ -5,6 +5,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Stack;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 
 /**
  * Concrete implementation of the LibraryADT interface.
@@ -111,36 +114,36 @@ public class LibraryImpl implements LibraryADT {
     }
 
     @Override
-public void returnBook(int isbn) {
-    if (historyStack.isEmpty()) {
-        System.out.println("No borrowing history found. Cannot return book.");
-        return;
-    }
-
-    // 从栈顶向下查找第一个匹配 ISBN 的记录（即最近一次借阅未归还的） search
-    int index = -1;
-    for (int i = historyStack.size() - 1; i >= 0; i--) {
-        if (historyStack.get(i).getIsbn() == isbn) {
-            index = i;
-            break;
+    public void returnBook(int isbn) {
+        if (historyStack.isEmpty()) {
+            System.out.println("No borrowing history found. Cannot return book.");
+            return;
         }
+
+        // 从栈顶向下查找第一个匹配 ISBN 的记录（即最近一次借阅未归还的） search
+        int index = -1;
+        for (int i = historyStack.size() - 1; i >= 0; i--) {
+            if (historyStack.get(i).getIsbn() == isbn) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index == -1) {
+            System.out.println("No borrowing record found for ISBN " + isbn + ". Cannot return.");
+            return;
+        }
+
+        // 取出记录并删除 change record
+        BorrowHistory record = historyStack.remove(index);
+        String title = record.getTitle();
+        String author = record.getAuthor();
+
+        // 重新插入 BST readd
+        addBook(isbn, title, author);
+
+        System.out.println("Successfully returned: " + title + " (ISBN: " + isbn + ")");
     }
-
-    if (index == -1) {
-        System.out.println("No borrowing record found for ISBN " + isbn + ". Cannot return.");
-        return;
-    }
-
-    // 取出记录并删除 change record
-    BorrowHistory record = historyStack.remove(index);
-    String title = record.getTitle();
-    String author = record.getAuthor();
-
-    // 重新插入 BST readd
-    addBook(isbn, title, author);
-
-    System.out.println("Successfully returned: " + title + " (ISBN: " + isbn + ")");
-}
 
     // =========================================================================
     //  LibraryADT — Startup: data loading
@@ -173,6 +176,8 @@ public void returnBook(int isbn) {
         int loaded    = 0;
         int skipped   = 0;
         int lineNumber = 0;
+
+        ArrayList<Book> bookList = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 
@@ -223,10 +228,21 @@ public void returnBook(int isbn) {
                     continue;
                 }
 
-                // All checks passed — insert into BST
-                addBook(isbn, title, author);
-                loaded++;
+                // All checks passed — add to the list, pending sort and tree-building
+                bookList.add(new Book(isbn, title, author));
             }
+
+            // Remove the duplicates
+            LinkedHashSet<Book> set = new LinkedHashSet<>(bookList);
+            bookList.clear();
+            bookList.addAll(set);
+            loaded = bookList.size();
+
+            //Sort: TimSort, which is stable and extremely efficient if the list is well-sorted 
+            bookList.sort(Comparator.comparingInt(book->book.getIsbn()));
+
+            //Build the tree
+            root = buildBalancedBST(bookList, 0, bookList.size()-1);
 
             // Summary report
             System.out.println("--------------------------------------------------");
@@ -243,6 +259,19 @@ public void returnBook(int isbn) {
                     "\" at line " + lineNumber + ": " + e.getMessage());
             System.out.println("        " + loaded + " book(s) were loaded before the error.");
         }
+    }
+
+    // Help with Building a Tree From a Sorted List
+    private Book buildBalancedBST(ArrayList<Book> sortedBooks, int start, int end) {
+        if (start > end) return null;
+        
+        int mid = start + (end - start) / 2;
+        Book root = sortedBooks.get(mid);
+        
+        root.setLeft(buildBalancedBST(sortedBooks, start, mid - 1));
+        root.setRight(buildBalancedBST(sortedBooks, mid + 1, end));
+        
+        return root;
     }
 
     /**
@@ -342,12 +371,12 @@ public void returnBook(int isbn) {
      * Persists the current library state to two pipe-delimited text files.
      *
      * --- Catalogue (BST) ---
-     * Serialises using a pre-order traversal (root → left → right).
-     * Pre-order is critical: re-inserting records in the same order on the
-     * next startup via addBook() / insertBST() reconstructs the identical
-     * BST topology, preserving O(log n) search performance.
-     * An in-order (sorted) dump would cause degenerate O(n) right-skewed
-     * reconstruction.
+     * Serialises using a in-order traversal (left → root → right).
+     * In-order is critical.
+     * An in-order (sorted) dump would cause degenerate O(n) right-skewed reconstruction.
+     * But if we restruct the tree with binary recusion, the new tree would be perfectly balanced.
+     * Via special I/O processing, we maintain the performance of the tree without complicate algorithm (like AVL).
+     * 
      *
      * --- History (Stack) ---
      * Iterates from index 0 (oldest / bottom) up to size-1 (newest / top).
@@ -368,9 +397,9 @@ public void returnBook(int isbn) {
 
             writer.println("# Smart Library — Current Catalogue (auto-saved)");
             writer.println("# Format : ISBN|Title|Author");
-            writer.println("# Traversal: Pre-order — DO NOT edit manually");
+            writer.println("# Traversal: In-order — DO NOT edit manually");
 
-            int catCount = saveBSTPreOrder(root, writer);
+            int catCount = saveBSTInOrder(root, writer);
 
             System.out.println("[Save] Catalogue : " + catCount +
                     " book(s) written to \"" + cataloguePath + "\".");
@@ -405,23 +434,27 @@ public void returnBook(int isbn) {
     }
 
     /**
-     * Recursive pre-order BST serialisation helper.
+     * Recursive IN-order BST serialisation helper.
      * Writes each node as "ISBN|Title|Author" and returns the total count.
      *
      * @param node   Current BST node (null = base case)
      * @param writer Destination writer (already open by the caller)
      * @return Number of nodes written in this subtree
      */
-    private int saveBSTPreOrder(Book node, PrintWriter writer) {
+    private int saveBSTInOrder(Book node, PrintWriter writer) {
         if (node == null) return 0;
 
-        // Write this node first (pre-order)
+        //Recurse into left subtrees firstly (In-order)
+        int left = saveBSTInOrder(node.getLeft(),  writer);
+
+        // Write this node Secondly (In-order)
         writer.println(node.getIsbn() + "|" + node.getTitle() + "|" + node.getAuthor());
 
-        // Recurse into left and right subtrees, accumulating the count
-        return 1
-             + saveBSTPreOrder(node.getLeft(),  writer)
-             + saveBSTPreOrder(node.getRight(), writer);
+        //Recurse into right subtrees at last (In-order)
+        int right = saveBSTInOrder(node.getRight(), writer);
+
+        //Accumulating the count
+        return left + 1 + right;
     }
 
     // =========================================================================
